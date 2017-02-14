@@ -1,48 +1,86 @@
 package com.chaithanyaprathyush.packagemanager
 
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.database.DataSetObservable
+import android.database.DataSetObserver
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import java.util.*
 
-class MainActivity: AppCompatActivity() {
+data class Application(val application: ApplicationInfo, val name: String, var uid: Int)
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+class MainActivity: AppCompatActivity(), ListAdapter {
+        var arrayList = ArrayList<Application>()
+        var applicationManager: PackageManager? = null
+        var applicationListView: ListView? = null
+        private val mDataSetObservable = DataSetObservable()
+    // Activity Overrides.
+        override fun onCreate(savedInstanceState: Bundle?) {
+            super.onCreate(savedInstanceState)
+            applicationManager = this.packageManager
+            applicationListView = ListView(this)
+            applicationListView?.adapter = this
+            setContentView(applicationListView)
+            Thread(Runnable { getAppsList() }).start()
+        }
+        // Adapter Overrides.
+        override fun isEmpty(): Boolean { return arrayList.isEmpty() }
 
-        val relativeLayout = RelativeLayout(this)
-        relativeLayout.layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT,
-                RelativeLayout.LayoutParams.MATCH_PARENT)
+        override fun getCount(): Int { return arrayList.count() }
 
+        override fun hasStableIds(): Boolean { return true }
 
+        override fun getItem(p0: Int): Application { return arrayList[p0] }
 
-    }
+        override fun getItemId(p0: Int): Long { return arrayList[p0].uid.toLong() }
 
+        override fun getViewTypeCount(): Int {  return 1 }
 
-    private inner class ExampleAdapter: BaseAdapter() {
+        override fun getItemViewType(p0: Int): Int { return 0 }
 
-        var exampleData: ArrayList<String>? = null
+        override fun getView(p0: Int, p1: View?, p2: ViewGroup?): View? {
+            // Obtain the item associated with the position of this row in the list
+            // Create a view to show the data associated with the item.
 
-        override fun getCount(): Int {
-            return exampleData?.size ?: 0
+            if (p1 is TextView) {
+                Log.i("Adapter", "Reused A View")
+                p1.text = getItem(p0).name
+                return p1
+            } else {
+                Log.i("Adapter", "Created A View")
+                val textView = TextView(this)
+                textView.setPadding(25, 25, 25, 25)
+                textView.text = getItem(p0).name
+                return textView
+            }
         }
 
-        override fun getItem(p0: Int): String {
-            return exampleData?.get(p0) ?: ""
+        override fun registerDataSetObserver(p0: DataSetObserver?) {
+            mDataSetObservable.registerObserver(p0)
         }
 
-        override fun getItemId(p0: Int): Long {
-            return 0
+        override fun unregisterDataSetObserver(p0: DataSetObserver?) {
+            mDataSetObservable.unregisterObserver(p0)
         }
 
-        override fun getView(p0: Int, p1: View?, p2: ViewGroup?): View {
+        override fun areAllItemsEnabled(): Boolean { return true }
 
-            val view = TextView(this@MainActivity)
-            view.text = getItem(p0)
-            return view
+        // List Adapter Overrides
+        override fun isEnabled(p0: Int): Boolean { return true }
+
+        private fun getAppsList() {
+            val applicationList =
+                    applicationManager?.getInstalledApplications(PackageManager.GET_META_DATA)
+            arrayList = applicationList?.map {
+                val applicationName = applicationManager?.getApplicationLabel(it).toString()
+                Log.i("Application Info", "Application Name: $applicationName, Package Name: ${it.packageName}")
+                Application(it, applicationName, it.uid)
+            } as? ArrayList<Application> ?: ArrayList<Application>()
+            runOnUiThread { mDataSetObservable.notifyChanged() }
         }
-    }
-
 }
